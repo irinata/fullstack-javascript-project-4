@@ -1,0 +1,36 @@
+{
+  "name": "@hexlet/code",
+  "version": "1.0.0",
+  "description": "page-loader project",
+  "homepage": "https://github.com/irinata/fullstack-javascript-project-4#readme",
+  "bugs": {
+    "url": "https://github.com/irinata/fullstack-javascript-project-4/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/irinata/fullstack-javascript-project-4.git"
+  },
+  "license": "ISC",
+  "author": "Irina Nekrasova",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "page-loader": "bin/page-loader.js"
+  },
+  "scripts": {
+    "test": "npx jest"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.29.0",
+    "@stylistic/eslint-plugin": "^5.0.0",
+    "eslint": "^9.29.0",
+    "globals": "^16.2.0",
+    "nock": "^14.0.5",
+    "easy-crc": "^1.1.0"
+  },
+  "dependencies": {
+    "axios": "^1.10.0",
+    "commander": "^14.0.0",    
+    "lodash": "^4.17.21"
+  }
+}
