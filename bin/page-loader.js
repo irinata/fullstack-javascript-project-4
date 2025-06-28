@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander'
-import loadPage from '../index.js'
+import loadPage from '../src/index.js'
 
 async function command(url) {
   const filepath = await loadPage(url, program.opts().output)
