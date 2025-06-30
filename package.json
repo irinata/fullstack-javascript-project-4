@@ -23,14 +23,15 @@
   "devDependencies": {
     "@eslint/js": "^9.29.0",
     "@stylistic/eslint-plugin": "^5.0.0",
+    "easy-crc": "^1.1.0",
     "eslint": "^9.29.0",
     "globals": "^16.2.0",
-    "nock": "^14.0.5",
-    "easy-crc": "^1.1.0"
+    "nock": "^14.0.5"
   },
   "dependencies": {
     "axios": "^1.10.0",
-    "commander": "^14.0.0",    
+    "cheerio": "^1.1.0",
+    "commander": "^14.0.0",
     "lodash": "^4.17.21"
   }
 }

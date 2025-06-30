@@ -17,7 +17,7 @@ export default [
     ...stylistic.configs.recommended,
   },
   {
-    ignores: ['dist/'],
+    ignores: ['dist/', 'eslint.config.js'],
   },
   {
     languageOptions: {
@@ -28,7 +28,7 @@ export default [
       },
     },
     rules: {
-      '@typescript-eslint/no-unused-vars': 'off',
+      "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
     },
   },
 ]
