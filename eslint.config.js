@@ -17,7 +17,7 @@ export default [
     ...stylistic.configs.recommended,
   },
   {
-    ignores: ['dist/', 'eslint.config.js'],
+    ignores: ['eslint.config.js', '__fixtures__/runtime.js'],
   },
   {
     languageOptions: {
