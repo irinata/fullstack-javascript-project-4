@@ -45,48 +45,56 @@ function getName(str, postfix) {
   return str.replace(/^http[s]?:\/\//, '').replace(/[^a-z\d]/g, '-') + postfix
 }
 
-function modifyAttributes($, selector, attribute, pageUrl, resDir, resData) {
-  $(selector).each((_, element) => {
-    const imgSrc = $(element).attr(attribute)
-    const ext = path.extname(imgSrc)
-    if (!imgSrc || !ext) return
+function modifyResourcesAttributes($, pageUrl, resourceDir, resources) {
+  $('link[href], script[src], img[src]').each((_, el) => {
+    const tag = el.name
+    const attr = tag === 'link' ? 'href' : 'src'
+    const attrValue = $(el).attr(attr)
+    if (!attrValue) return
 
-    const resUrl = imgSrc.match(/^(?:\/|http)/) // if src is relative or contains domain
-      ? new URL(imgSrc, pageUrl.origin) // construct resource url from domain
-      : new URL(path.join(pageUrl.pathname, imgSrc), pageUrl.origin) // construct resource url from domain/path
+    let ext = path.extname(attrValue)
+    if (tag === 'img' && !ext) return
 
-    if (resUrl.host !== pageUrl.host) return
+    // if src is relative or contains domain
+    // ? construct resource url from domain
+    // : construct resource url from domain/path
+    const resourceUrl = attrValue.match(/^(?:\/|http)/)
+      ? new URL(attrValue, pageUrl.origin)
+      : new URL(path.join(pageUrl.pathname, attrValue), pageUrl.origin)
 
-    const resFilename = getName(resUrl.href.slice(0, resUrl.href.length - ext.length), ext || '.html')
-    resData.push([resUrl, resFilename])
+    if (resourceUrl.host !== pageUrl.host) return
 
-    const resourceHtmlPath = path.join(resDir, resFilename)
-    $(element).attr('src', resourceHtmlPath)
+    const preparedStr = ext ? resourceUrl.href.slice(0, -ext.length) : resourceUrl.href
+    const resourceFilename = getName(preparedStr, ext || (tag === 'link' ? '.html' : ''))
+    resources.push([resourceUrl, tag, resourceFilename])
+
+    $(el).attr(attr, path.join(resourceDir, resourceFilename))
   })
 }
 
 async function downloadPageResources(url, dir, pageData) {
-  const resDir = getName(url, '_files')
-  const resFullPath = path.join(path.resolve(dir), resDir)
+  const resourceDir = getName(url, '_files')
+  const resourceFullPath = path.join(path.resolve(dir), resourceDir)
   const $ = cheerio.load(pageData)
-  const resData = []
+  const resources = []
 
-  return makeDirectory(resFullPath)
+  return makeDirectory(resourceFullPath)
     .then(() => {
       const pageUrl = new URL(url)
-      const selector = 'img'
-      const attribute = 'src'
-      modifyAttributes($, selector, attribute, pageUrl, resDir, resData)
-
-      const config = { responseType: 'arraybuffer' }
-      return resData.map(([resUrl, _]) => downloadData(resUrl, config))
+      modifyResourcesAttributes($, pageUrl, resourceDir, resources)
+      return resources.map(([url, tag]) => {
+        const config = tag === 'img'
+          ? { responseType: 'arraybuffer' }
+          : { responseType: 'text' }
+        return downloadData(url, config)
+      })
     })
     .then(requests => Promise.allSettled(requests))
     .then((results) => {
-      const resFilepaths = resData.map(([_, resFilename]) => path.join(resFullPath, resFilename))
+      const resPaths = resources.map(([,, name]) => path.join(resourceFullPath, name))
       results.forEach((result, index) => {
         if (result.status === 'fulfilled') {
-          saveFile(resFilepaths[index], result.value)
+          saveFile(resPaths[index], result.value)
         }
       })
       return $.html()
