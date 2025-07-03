@@ -2,6 +2,7 @@ import axios from 'axios'
 import fsp from 'fs/promises'
 import path from 'path'
 import * as cheerio from 'cheerio'
+import Listr from 'listr'
 
 async function saveFile(filepath, data) {
   return fsp.writeFile(filepath, data)
@@ -12,7 +13,7 @@ async function saveFile(filepath, data) {
 async function downloadData(url, config = {}) {
   return axios.get(url, config)
     .then(response => response.data)
-    .catch((error) => { throw new Error(`Error on data load by ${url}: ${error}`) })
+    .catch((error) => { throw new Error(`File download error: ${error}`) })
 }
 
 async function checkDirectoryExists(dirPath, strictMode = 1) {
@@ -45,7 +46,9 @@ function getName(str, postfix) {
   return str.replace(/^http[s]?:\/\//, '').replace(/[^a-z\d]/g, '-') + postfix
 }
 
-function modifyResourcesAttributes($, pageUrl, resourceDir, resources) {
+function modifyResourcesAttributes($, url, resourceDir) {
+  const pageUrl = new URL(url)
+  const resources = []
   $('link[href], script[src], img[src]').each((_, el) => {
     const tag = el.name
     const attr = tag === 'link' ? 'href' : 'src'
@@ -66,37 +69,48 @@ function modifyResourcesAttributes($, pageUrl, resourceDir, resources) {
 
     const preparedStr = ext ? resourceUrl.href.slice(0, -ext.length) : resourceUrl.href
     const resourceFilename = getName(preparedStr, ext || (tag === 'link' ? '.html' : ''))
-    resources.push([resourceUrl, tag, resourceFilename])
+    resources.push({ tag, url: resourceUrl, filename: resourceFilename })
 
     $(el).attr(attr, path.join(resourceDir, resourceFilename))
   })
+  return resources
 }
 
 async function downloadPageResources(url, dir, pageData) {
   const resourceDir = getName(url, '_files')
   const resourceFullPath = path.join(path.resolve(dir), resourceDir)
   const $ = cheerio.load(pageData)
-  const resources = []
 
   return makeDirectory(resourceFullPath)
     .then(() => {
-      const pageUrl = new URL(url)
-      modifyResourcesAttributes($, pageUrl, resourceDir, resources)
-      return resources.map(([url, tag]) => {
-        const config = tag === 'img'
-          ? { responseType: 'arraybuffer' }
-          : { responseType: 'text' }
-        return downloadData(url, config)
-      })
+      return modifyResourcesAttributes($, url, resourceDir)
     })
-    .then(requests => Promise.allSettled(requests))
-    .then((results) => {
-      const resPaths = resources.map(([,, name]) => path.join(resourceFullPath, name))
-      results.forEach((result, index) => {
-        if (result.status === 'fulfilled') {
-          saveFile(resPaths[index], result.value)
-        }
-      })
+    .then((resources) => {
+      const tasks = resources.map(resource => ({
+        title: resource.url.href,
+        task: (ctx, task) => {
+          const config = resource.tag === 'img'
+            ? { responseType: 'arraybuffer' }
+            : { responseType: 'text' }
+          return downloadData(resource.url, config)
+            .then((data) => {
+              const resourceFilepath = path.join(resourceFullPath, resource.filename)
+              return saveFile(resourceFilepath, data)
+            })
+            .catch((error) => {
+              task.title = `Error: ${resource.url}`
+              ctx.errors = ctx.errors || []
+              throw new Error(error.message)
+            })
+        },
+      }))
+      const listr = new Listr(tasks, { concurrent: true, exitOnError: false })
+      return listr.run()
+    })
+    .then(() => {
+      return $.html()
+    })
+    .catch(() => {
       return $.html()
     })
 };
