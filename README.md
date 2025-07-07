@@ -15,7 +15,15 @@ npm link
 
 ## Usage
 
-page-loader -o /var/tmp https://ru.hexlet.io/courses
+page-loader -o /tmp/testdir https://ru.hexlet.io/courses
+
+page-loader can provide detailed logs about its work. Logging is disabled by default.
+To enable it set DEBUG environment variable to 'page-loader' for common logs
+or 'axios' for axios-specific logs or both.
+
+All logs go to stderr and can be redirected to a file:
+DEBUG=page-loader,axios page-loader -o /tmp/testdir https://ru.hexlet.io/courses 2>/tmp/testdir/err.log
+
 
 ## page-loader usage record
 
