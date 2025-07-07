@@ -2,29 +2,46 @@ import axios from 'axios'
 import fsp from 'fs/promises'
 import path from 'path'
 import * as cheerio from 'cheerio'
-import Listr from 'listr'
+import { Listr } from 'listr2'
+import debug from 'debug'
+import { addLogger } from 'axios-debug-log'
+
+addLogger(axios)
+const log = debug('page-loader')
 
 async function saveFile(filepath, data) {
+  log(`Write file ${filepath}`)
   return fsp.writeFile(filepath, data)
     .then(() => { return filepath })
-    .catch((error) => { throw new Error(`File write error: ${error}`) })
+    .catch((error) => {
+      log(`Failed to write file ${filepath}`)
+      throw new Error(`File write error: ${error}`)
+    })
 }
 
 async function downloadData(url, config = {}) {
+  log(`Download data from ${url}, config: ${JSON.stringify(config, null, 2)}`)
   return axios.get(url, config)
     .then(response => response.data)
-    .catch((error) => { throw new Error(`File download error: ${error}`) })
+    .catch((error) => {
+      log(`Failed to download data from ${url}`)
+      throw new Error(`File download error: ${error}`)
+    })
 }
 
 async function checkDirectoryExists(dirPath, strictMode = 1) {
+  log(`Check if directory exists: ${dirPath}`)
   return fsp.stat(dirPath)
     .then((stats) => {
       if (!stats.isDirectory()) {
+        log(`${dirPath} is not a directory`)
         throw new TypeError(`${dirPath} is not a directory`)
       }
+      log(`${dirPath} exists`)
       return true
     })
     .catch((error) => {
+      log(`${dirPath} does not exist`)
       if (strictMode) {
         throw new Error(`Directory ${dirPath} does not exist: ${error}`)
       }
@@ -36,9 +53,13 @@ async function makeDirectory(dirPath) {
   return checkDirectoryExists(dirPath, 0)
     .then((exists) => {
       if (!exists) {
+        log(`Create directory: ${dirPath}`)
         fsp.mkdir(dirPath)
-          .catch((error) => { throw new Error(`Failed to create dir ${dirPath}: ${error}`) })
       }
+    })
+    .catch((error) => {
+      log(`Failed to create ${dirPath}`)
+      throw new Error(`Failed to create dir ${dirPath}: ${error}`)
     })
 }
 
@@ -69,9 +90,14 @@ function modifyResourcesAttributes($, url, resourceDir) {
 
     const preparedStr = ext ? resourceUrl.href.slice(0, -ext.length) : resourceUrl.href
     const resourceFilename = getName(preparedStr, ext || (tag === 'link' ? '.html' : ''))
-    resources.push({ tag, url: resourceUrl, filename: resourceFilename })
 
-    $(el).attr(attr, path.join(resourceDir, resourceFilename))
+    resources.push({ tag, url: resourceUrl, filename: resourceFilename })
+    const newAttrValue = path.join(resourceDir, resourceFilename)
+
+    log(`Modify resource attribute for '${tag}[${attr}]':`)
+    log(`FROM: '${attrValue}' TO: '${newAttrValue}'`)
+
+    $(el).attr(attr, newAttrValue)
   })
   return resources
 }
@@ -79,16 +105,19 @@ function modifyResourcesAttributes($, url, resourceDir) {
 async function downloadPageResources(url, dir, pageData) {
   const resourceDir = getName(url, '_files')
   const resourceFullPath = path.join(path.resolve(dir), resourceDir)
+  log(`Resources directory will be: ${resourceFullPath}`)
   const $ = cheerio.load(pageData)
 
   return makeDirectory(resourceFullPath)
     .then(() => {
+      log('Modify page resources attributes')
       return modifyResourcesAttributes($, url, resourceDir)
     })
     .then((resources) => {
+      log(`Create tasks to download and save resources`)
       const tasks = resources.map(resource => ({
         title: resource.url.href,
-        task: (ctx, task) => {
+        task: () => {
           const config = resource.tag === 'img'
             ? { responseType: 'arraybuffer' }
             : { responseType: 'text' }
@@ -98,8 +127,6 @@ async function downloadPageResources(url, dir, pageData) {
               return saveFile(resourceFilepath, data)
             })
             .catch((error) => {
-              task.title = `Error: ${resource.url}`
-              ctx.errors = ctx.errors || []
               throw new Error(error.message)
             })
         },
@@ -116,12 +143,14 @@ async function downloadPageResources(url, dir, pageData) {
 };
 
 function savePage(url, dir, data) {
+  log('Save main page')
   const filename = getName(url, '.html')
   const filepath = path.join(path.resolve(dir), filename)
   return saveFile(filepath, data)
 }
 
 function downloadPage(url) {
+  log('Download main page')
   const pageUrl = new URL(url)
   return downloadData(pageUrl)
 }

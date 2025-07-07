@@ -3,8 +3,10 @@ import path from 'path'
 import os from 'os'
 import nock from 'nock'
 import fsp from 'fs/promises'
+import fs from 'fs'
 import { crc32 } from 'easy-crc'
 import loadPage from '../src/page-loader.js'
+import debug from 'debug'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -132,5 +134,24 @@ describe('check download of page and its resources', () => {
     })
     const results = await Promise.all(promises)
     results.forEach(stats => expect(stats.isFile()).toBe(true))
+  })
+
+  test('debug log is created', async () => {
+    debug.enable('page-loader')
+    const logFile = path.join(tempDir, 'debug.log')
+    const logStream = fs.createWriteStream(logFile, { flags: 'a' })
+
+    debug.log = (...args) => {
+      logStream.write(args.join(' ') + '\n')
+    }
+    await loadPage(mockUrl, tempDir)
+
+    // expect log file exists
+    const debugLogStats = await fsp.stat(logFile)
+    expect(debugLogStats.isFile()).toBe(true)
+    // expect log file is not empty
+    expect(debugLogStats.size).toBeGreaterThan(0)
+
+    debug.disable()
   })
 })
