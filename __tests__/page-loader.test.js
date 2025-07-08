@@ -122,7 +122,7 @@ describe('check download of page and its resources', () => {
 
     expect(actualImg1Checksum).toBe(expectedImg1Checksum)
     expect(actualImg2Checksum).toBe(expectedImg2Checksum)
-    expect(actualCssFile).toBe(expectedCssFile)
+    expect(actualCssFile).toStrictEqual(expectedCssFile)
     expect(actualHtmlFile).toBe(initialPageData)
     expect(actualScriptFile).toBe(expectedScriptFile)
   })
