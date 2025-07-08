@@ -26,4 +26,14 @@ DEBUG=page-loader,axios page-loader -o /tmp/testdir https://ru.hexlet.io/courses
 
 
 ## page-loader usage record
+Usage example
+https://asciinema.org/a/Uq71LEBvjTXZjesiEmfkbBBLm
 
+Turn on logging
+https://asciinema.org/a/y1VjngoajPLlnIoe0UOcd0xQk
+
+Directory access error
+https://asciinema.org/a/7G6u12g7QcdqNheZlXt4M3fTE
+
+Resource download errors
+https://asciinema.org/a/wZ3u5SwmKhqzPYFbP1YwHcVjk
