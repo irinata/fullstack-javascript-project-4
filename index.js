@@ -1,1 +1,1 @@
-export { default as loadPage } from '../src/page-loader.js'
+export { default } from './src/page-loader.js'
