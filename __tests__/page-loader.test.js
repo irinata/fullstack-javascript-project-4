@@ -26,18 +26,25 @@ const resourceFilenames = [expectedImg1Name, expectedImg2Name,
 
 nock.disableNetConnect()
 
-test('on non-existent directory should throw exceptions', async () => {
-  const noSuchDir = '/tmp/nosuchdir123'
+test('on non-existent directory should throw', async () => {
+  const noSuchDir = path.join(os.tmpdir(), 'nosuchdir123')
   const promise = loadPage(mockUrl, noSuchDir)
-  await expect(promise).rejects.toThrow()
+  await expect(promise).rejects.toThrow('ENOENT')
 
   // expect resource dir is not created
   const promise2 = fsp.stat(path.join(noSuchDir, resourceDir))
-  expect(promise2).rejects.toThrow('ENOENT: no such file or directory')// ENOENT
+  expect(promise2).rejects.toThrow('ENOENT')
 
   // expect page file is not created
   const promise3 = fsp.stat(path.join(noSuchDir, expectedPageName))
-  expect(promise3).rejects.toThrow('ENOENT: no such file or directory')
+  expect(promise3).rejects.toThrow('ENOENT')
+})
+
+test('no permissions to write into provided directory should throw', async () => {
+  const tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'page-loader'))
+  await fsp.chmod(tempDir, 0o555)
+  const promise = loadPage(mockUrl, tempDir)
+  await expect(promise).rejects.toThrow('EACCES')
 })
 
 describe('check download of page and its resources', () => {
@@ -136,7 +143,7 @@ describe('check download of page and its resources', () => {
     results.forEach(stats => expect(stats.isFile()).toBe(true))
   })
 
-  test('debug log is created', async () => {
+  test('check debug log is created', async () => {
     debug.enable('page-loader')
     const logFile = path.join(tempDir, 'debug.log')
     const logStream = fs.createWriteStream(logFile, { flags: 'a' })
