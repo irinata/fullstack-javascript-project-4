@@ -14,8 +14,9 @@ async function saveFile(filepath, data) {
   return fsp.writeFile(filepath, data)
     .then(() => { return filepath })
     .catch((error) => {
-      log(`Failed to write file ${filepath}`)
-      throw new Error(`File write error: ${error}`)
+      log(`Failed to write file ${filepath}: ${error.message}`)
+      // throw new Error(`File write error: ${error}`)
+      throw error
     })
 }
 
@@ -24,8 +25,8 @@ async function downloadData(url, config = {}) {
   return axios.get(url, config)
     .then(response => response.data)
     .catch((error) => {
-      log(`Failed to download data from ${url}`)
-      throw new Error(`File download error: ${error}`)
+      log(`Failed to download data from ${url}: ${error.message}`)
+      throw error
     })
 }
 
@@ -35,17 +36,25 @@ async function checkDirectoryExists(dirPath, strictMode = 1) {
     .then((stats) => {
       if (!stats.isDirectory()) {
         log(`${dirPath} is not a directory`)
-        throw new TypeError(`${dirPath} is not a directory`)
+        throw new TypeError(`TypeError: ${dirPath} exists and is not a directory`)
       }
       log(`${dirPath} exists`)
       return true
     })
     .catch((error) => {
+      if (!error.code) throw error
       log(`${dirPath} does not exist`)
-      if (strictMode) {
-        throw new Error(`Directory ${dirPath} does not exist: ${error}`)
-      }
+      if (strictMode) throw error
       return false
+    })
+}
+
+async function checkDirectoryPermissions(dirPath) {
+  log(`Check permissions`)
+  return fsp.access(dirPath, fsp.constants.W_OK | fsp.constants.X_OK)
+    .catch((error) => {
+      log(`No execution or write permissions for ${dirPath}`)
+      throw error
     })
 }
 
@@ -54,12 +63,12 @@ async function makeDirectory(dirPath) {
     .then((exists) => {
       if (!exists) {
         log(`Create directory: ${dirPath}`)
-        fsp.mkdir(dirPath)
+        return fsp.mkdir(dirPath)
       }
     })
     .catch((error) => {
-      log(`Failed to create ${dirPath}`)
-      throw new Error(`Failed to create dir ${dirPath}: ${error}`)
+      log(`Failed to create ${dirPath}: ${error.message}`)
+      throw error
     })
 }
 
@@ -104,7 +113,7 @@ function modifyResourcesAttributes($, url, resourceDir) {
 
 async function downloadPageResources(url, dir, pageData) {
   const resourceDir = getName(url, '_files')
-  const resourceFullPath = path.join(path.resolve(dir), resourceDir)
+  const resourceFullPath = path.join(dir, resourceDir)
   log(`Resources directory will be: ${resourceFullPath}`)
   const $ = cheerio.load(pageData)
 
@@ -117,7 +126,7 @@ async function downloadPageResources(url, dir, pageData) {
       log(`Create tasks to download and save resources`)
       const tasks = resources.map(resource => ({
         title: resource.url.href,
-        task: () => {
+        task: (ctx, task) => {
           const config = resource.tag === 'img'
             ? { responseType: 'arraybuffer' }
             : { responseType: 'text' }
@@ -127,7 +136,12 @@ async function downloadPageResources(url, dir, pageData) {
               return saveFile(resourceFilepath, data)
             })
             .catch((error) => {
-              throw new Error(error.message)
+              const errCode = error.code
+              const errStatus = error?.response?.status
+              const errText = error?.response?.statusText
+              const errMsg = `${resource.url} ` + (errStatus && errText ? `(${errStatus} ${errText})` : `(${errCode})`)
+              task.title = errMsg
+              throw errMsg
             })
         },
       }))
@@ -137,15 +151,14 @@ async function downloadPageResources(url, dir, pageData) {
     .then(() => {
       return $.html()
     })
-    .catch(() => {
-      return $.html()
+    .catch((error) => {
+      throw error
     })
 };
 
 function savePage(url, dir, data) {
   log('Save main page')
-  const filename = getName(url, '.html')
-  const filepath = path.join(path.resolve(dir), filename)
+  const filepath = path.join(dir, getName(url, '.html'))
   return saveFile(filepath, data)
 }
 
@@ -156,8 +169,10 @@ function downloadPage(url) {
 }
 
 export default function loadPage(url, dir = process.cwd()) {
-  return checkDirectoryExists(path.resolve(dir))
+  const fullpath = path.resolve(dir)
+  return checkDirectoryExists(fullpath)
+    .then(() => checkDirectoryPermissions(fullpath))
     .then(() => downloadPage(url))
-    .then(data => downloadPageResources(url, dir, data))
-    .then(newdata => savePage(url, dir, newdata))
+    .then(data => downloadPageResources(url, fullpath, data))
+    .then(newdata => savePage(url, fullpath, newdata))
 }

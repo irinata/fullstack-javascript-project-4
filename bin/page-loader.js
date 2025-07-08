@@ -4,8 +4,15 @@ import { Command } from 'commander'
 import loadPage from '../src/page-loader.js'
 
 async function command(url) {
-  const filepath = await loadPage(url, program.opts().output)
-  console.log(filepath)
+  try {
+    const filepath = await loadPage(url, program.opts().output)
+    console.log(filepath)
+    process.exit(0)
+  }
+  catch (error) {
+    console.error(error.message || error)
+    process.exit(1)
+  }
 }
 
 const program = new Command()
