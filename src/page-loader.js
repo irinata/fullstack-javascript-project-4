@@ -163,7 +163,7 @@ function downloadPage(url) {
   return downloadData(pageUrl)
 }
 
-export default function loadPage(url, dir = process.cwd()) {
+export default function (url, dir = process.cwd()) {
   const fullpath = path.resolve(dir)
   return checkDirectoryExists(fullpath)
     .then(() => checkDirectoryPermissions(fullpath))
