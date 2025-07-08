@@ -9,9 +9,12 @@ import { addLogger } from 'axios-debug-log'
 addLogger(axios)
 const log = debug('page-loader')
 
-async function saveFile(filepath, data) {
+async function saveFile(filepath, data, bom = false) {
   log(`Write file ${filepath}`)
-  return fsp.writeFile(filepath, data)
+  const bomBytes = Buffer.from([0xef, 0xbb, 0xbf])
+  const buffer = Buffer.concat([bomBytes, Buffer.from(data, 'utf-8')])
+  const buffer2 = bom ? buffer : data
+  return fsp.writeFile(filepath, buffer2)
     .then(() => { return filepath })
     .catch((error) => {
       log(`Failed to write file ${filepath}: ${error.message}`)
@@ -132,7 +135,8 @@ async function downloadPageResources(url, dir, pageData) {
           return downloadData(resource.url, config)
             .then((data) => {
               const resourceFilepath = path.join(resourceFullPath, resource.filename)
-              return saveFile(resourceFilepath, data)
+              const bom = path.extname(resource.filename) === '.css'
+              return saveFile(resourceFilepath, data, bom)
             })
             .catch((error) => {
               const errStatus = error?.response?.status
