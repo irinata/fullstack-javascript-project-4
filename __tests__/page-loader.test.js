@@ -47,6 +47,13 @@ test('no permissions to write into provided directory should throw', async () =>
   await expect(promise).rejects.toThrow('EACCES')
 })
 
+test('provided file instead of directory should throw', async () => {
+  const testFile = path.join(os.tmpdir(), 'testfile')
+  await fsp.writeFile(testFile, '')
+  const promise = loadPage(mockUrl, testFile)
+  await expect(promise).rejects.toThrow('TypeError')
+})
+
 describe('check download of page and its resources', () => {
   let initialPageData
   let expectedPageData
