@@ -72,7 +72,7 @@ async function makeDirectory(dirPath) {
 }
 
 function getName(str, postfix) {
-  return str.replace(/^http[s]?:\/\//, '').replace(/[^a-z\d]/g, '-') + postfix
+  return str.replace(/^https?:\/\//, '').replace(/[^a-z\d]/g, '-') + postfix
 }
 
 function modifyResourcesAttributes($, url, resourceDir) {
@@ -135,10 +135,9 @@ async function downloadPageResources(url, dir, pageData) {
               return saveFile(resourceFilepath, data)
             })
             .catch((error) => {
-              const errCode = error.code
               const errStatus = error?.response?.status
               const errText = error?.response?.statusText
-              const errMsg = `${resource.url} ` + (errStatus && errText ? `(${errStatus} ${errText})` : `(${errCode})`)
+              const errMsg = `${resource.url} ` + (errStatus && errText ? `(${errStatus} ${errText})` : `(${error.code})`)
               task.title = errMsg
               throw errMsg
             })
@@ -149,9 +148,6 @@ async function downloadPageResources(url, dir, pageData) {
     })
     .then(() => {
       return $.html()
-    })
-    .catch((error) => {
-      throw error
     })
 };
 
