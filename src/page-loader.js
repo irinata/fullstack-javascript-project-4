@@ -15,7 +15,6 @@ async function saveFile(filepath, data) {
     .then(() => { return filepath })
     .catch((error) => {
       log(`Failed to write file ${filepath}: ${error.message}`)
-      // throw new Error(`File write error: ${error}`)
       throw error
     })
 }
